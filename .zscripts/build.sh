@@ -27,6 +27,33 @@ cd "$NEXTJS_PROJECT_DIR" || exit 1
 # 设置环境变量
 export NEXT_TELEMETRY_DISABLED=1
 
+find_standalone_server_dir() {
+    if [ -f ".next/standalone/server.js" ]; then
+        echo ".next/standalone"
+        return 0
+    fi
+
+    if [ ! -d ".next/standalone" ]; then
+        return 1
+    fi
+
+    local server_files
+    server_files="$({ find .next/standalone \
+        -path '*/node_modules/*' -prune -o \
+        -type f -name server.js -print 2>/dev/null || true; } | sort)"
+
+    if [ -z "$server_files" ]; then
+        return 1
+    fi
+
+    if [ "$(printf '%s\n' "$server_files" | wc -l | tr -d ' ')" != "1" ]; then
+        echo "⚠️  检测到多个 standalone server.js，默认使用第一个:" >&2
+        printf '%s\n' "$server_files" | sed 's/^/   /' >&2
+    fi
+
+    dirname "$(printf '%s\n' "$server_files" | head -1)"
+}
+
 BUILD_DIR="/tmp/build_fullstack_$BUILD_ID"
 echo "📁 清理并创建构建目录: $BUILD_DIR"
 mkdir -p "$BUILD_DIR"
@@ -40,15 +67,18 @@ echo "🔨 构建 Next.js 应用..."
 bun run build
 
 # 校验 standalone 服务端入口是否生成（部署成功率守卫）。
-# Next 仅在 next.config 含 output:"standalone" 时产出 .next/standalone/server.js。
+# Next 仅在 next.config 含 output:"standalone" 时产出 standalone server.js。
+# 当 Next.js 因上层 lockfile 将 workspace root 推断到 /home/z 等父目录时，server.js
+# 可能位于 .next/standalone/my-project/full-stack/server.js 这样的嵌套路径。
 # 若用户/AI 编辑项目时改写或删除了该配置，bun run build 仍会成功（static 照常
 # 产出、退出码 0），但 standalone 缺失——打出的包里没有 server.js，部署到 FC 后
 # start.sh 找不到 next-service-dist/server.js → 不启动 Next → Caddy:81 反代空的
 # 3000 → FC 健康检查 120s 超时失败（线上 warmup_412 / FunctionNotStarted 的主因）。
 # 这里做一次自愈：仅在确实缺失时，给 next.config 补回 output:"standalone" 并重建。
 # 正常项目（已生成 server.js）整段跳过，不读写任何用户文件。
-if [ ! -f ".next/standalone/server.js" ]; then
-    echo "⚠️  构建未产出 .next/standalone/server.js，开始自愈 next.config 的 output 配置..."
+STANDALONE_SERVER_DIR="$(find_standalone_server_dir || true)"
+if [ -z "$STANDALONE_SERVER_DIR" ]; then
+    echo "⚠️  构建未产出 standalone server.js，开始自愈 next.config 的 output 配置..."
     NEXT_CONFIG_FILE="$(ls next.config.ts next.config.js next.config.mjs next.config.cjs 2>/dev/null | head -1)"
 
     if [ -z "$NEXT_CONFIG_FILE" ]; then
@@ -59,7 +89,7 @@ if [ ! -f ".next/standalone/server.js" ]; then
     if grep -Eq "output\s*:\s*['\"]standalone['\"]" "$NEXT_CONFIG_FILE"; then
         # 已声明 standalone 却仍没产出 server.js，说明不是配置缺失（可能 build 真
         # 出错、自定义 distDir 等）。不臆改用户配置，直接失败并暴露原因。
-        echo "❌ 构建失败：$NEXT_CONFIG_FILE 已含 output:\"standalone\"，但仍未生成 .next/standalone/server.js。"
+        echo "❌ 构建失败：$NEXT_CONFIG_FILE 已含 output:\"standalone\"，但仍未生成 standalone server.js。"
         echo "   请检查上方构建日志中的报错或项目自定义的构建配置。"
         exit 1
     fi
@@ -90,12 +120,14 @@ if [ ! -f ".next/standalone/server.js" ]; then
     echo "🔨 已注入 output:\"standalone\"，重新构建..."
     bun run build
 
-    if [ ! -f ".next/standalone/server.js" ]; then
-        echo "❌ 注入 output:\"standalone\" 并重建后，仍未生成 .next/standalone/server.js。"
+    STANDALONE_SERVER_DIR="$(find_standalone_server_dir || true)"
+    if [ -z "$STANDALONE_SERVER_DIR" ]; then
+        echo "❌ 注入 output:\"standalone\" 并重建后，仍未生成 standalone server.js。"
         exit 1
     fi
     echo "✅ 自愈成功：standalone 服务端入口已生成。"
 fi
+echo "✅ standalone 服务端入口目录: $STANDALONE_SERVER_DIR"
 
 # 构建 mini-services
 # 检查 Next.js 项目目录下是否有 mini-services 目录
@@ -119,7 +151,13 @@ echo "📦 收集构建产物到 $BUILD_DIR..."
 # 复制 Next.js standalone 构建输出
 if [ -d ".next/standalone" ]; then
     echo "  - 复制 .next/standalone"
-    cp -r .next/standalone "$BUILD_DIR/next-service-dist/"
+    mkdir -p "$BUILD_DIR/next-service-dist"
+    cp -R .next/standalone/. "$BUILD_DIR/next-service-dist/"
+
+    if [ "$STANDALONE_SERVER_DIR" != ".next/standalone" ]; then
+        echo "  - 归一化嵌套 standalone server: $STANDALONE_SERVER_DIR -> next-service-dist/"
+        cp -R "$STANDALONE_SERVER_DIR/." "$BUILD_DIR/next-service-dist/"
+    fi
 fi
 
 # 复制 Next.js 静态文件
