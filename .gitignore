@@ -1,0 +1,26 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+
+# production
+build/
+
+# logs & runtime
+*.log
+*.pid
+
+# runtime data (SQLite + snapshots, rebuilt by `prisma db push`)
+db/
+
+# env & secrets
+.env
+.env*.local
+
+# misc
+.DS_Store
+*.pem
+*.tsbuildinfo
+next-env.d.ts

@@ -14,31 +14,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AgentMore",
-  description: "Modern Next.js scaffold optimized for AI-powered development with AgentMore. Built with TypeScript, Tailwind CSS, and shadcn/ui.",
-  keywords: ["AgentMore", "Next.js", "TypeScript", "Tailwind CSS", "shadcn/ui", "AI development", "React"],
-  authors: [{ name: "AgentMore" }],
+  title: "CS 武器箱跨平台差价分析",
+  description:
+    "Steam · 网易BUFF · IGXE 实时价格对比，CS2/CSGO 武器箱差价收益比率可视化分析",
+  keywords: ["CS2", "CSGO", "武器箱", "Steam市场", "BUFF", "IGXE", "差价分析", "饰品价格"],
   icons: {
     icon: "https://new-front.chatglm.cn/activeimg/effective-web/69f17993283edbb6900dce9a",
-  },
-  openGraph: {
-    title: "AgentMore",
-    description: "AI-powered development with modern React stack",
-    url: "https://agentmore.chatglm.cn/",
-    siteName: "AgentMore",
-    type: "website",
-    images: [
-      {
-        url: "https://new-front.chatglm.cn/activeimg/effective-web/69f17993283edbb6900dce9a",
-        alt: "AgentMore Logo",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "AgentMore",
-    description: "AI-powered development with modern React stack",
-    images: ["https://new-front.chatglm.cn/activeimg/effective-web/69f17993283edbb6900dce9a"],
   },
 };
 
@@ -48,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="zh-CN" className="dark" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >
