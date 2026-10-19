@@ -15,7 +15,7 @@ import { getSettings } from '@/lib/settings'
 import { fetchIgxeCases, type IgxeItem } from '@/lib/sources/igxe'
 import { fetchBuffCases, type BuffItem } from '@/lib/sources/buff'
 import { fetchSteamDTCases, type SteamDTCaseRow } from '@/lib/sources/steamdt'
-import { getSteamPriceCny, enqueueSteamRefresh, steamCacheStats } from '@/lib/sources/steam'
+import { getSteamPriceCny, enqueueSteamRefresh, peekSteamPrice, steamCacheStats, ITEM_TTL_MS } from '@/lib/sources/steam'
 import type { AppSettings, CasePrice, PricesResponse, SourceStatus } from '@/lib/types'
 
 const globalStore = globalThis as unknown as {
@@ -233,15 +233,30 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
   const all = Array.from(merged.values())
   const hashNames = all.map((c) => c.hashName)
 
-  // ---- Steam 价格：SteamDT 聚合优先（国内直连稳定），未覆盖项回退直连/镜像，最后 BUFF 参考 ----
+  // ---- Steam 价格 ----
+  // 配置了镜像/代理 → 直连/镜像优先（缓存 TTL 内近实时，后台队列持续刷新），SteamDT 降级为回退；
+  // 未配置 → SteamDT 聚合优先（国内直连稳定；注意其 Steam 价为上游低频采样），直连只补未覆盖项，最后 BUFF 参考
   const mirrors = parseMirrors(settings.steamMirrors)
+  const directMode = mirrors.length > 0
   const steamCache = steamCacheStats()
-  const covered = hashNames.filter((h) => {
+  const dtCovered = (h: string) => {
     const dt = steamdtRows.get(h)
-    return dt && (dt.platforms.STEAM?.price ?? dt.steamPrice) !== null
-  })
-  const uncovered = hashNames.filter((h) => !covered.includes(h))
-  if (uncovered.length > 0) {
+    return !!dt && (dt.platforms.STEAM?.price ?? dt.steamPrice) !== null
+  }
+  const uncovered = hashNames.filter((h) => !dtCovered(h))
+
+  if (directMode) {
+    // 全量直连：请求路径内只同步抓少量 miss（缓存命中的瞬时返回，不拖慢 API），
+    // 其余项交后台队列（约 1 分钟内刷完，期间先用 SteamDT 值顶上并如实标注）
+    let budget = 4
+    for (const h of hashNames) {
+      if (budget <= 0) break
+      if (peekSteamPrice(h, ITEM_TTL_MS)) continue
+      await getSteamPriceCny(h, mirrors)
+      budget--
+    }
+    enqueueSteamRefresh(hashNames, mirrors)
+  } else if (uncovered.length > 0) {
     // 请求路径内小批量取价（未覆盖项通常很少）
     let directCount = 0
     for (const h of uncovered) {
@@ -261,20 +276,26 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
   // ---- 组装 + 计算收益率 ----
   let steamOk = 0
   let steamViaSteamdt = 0
+  let steamViaDirect = 0
   const cases: CasePrice[] = []
   for (const c of all) {
     const dt = steamdtRows.get(c.hashName)
     const dtSteamPrice = dt ? (dt.platforms.STEAM?.price ?? dt.steamPrice) : null
     let sp: Awaited<ReturnType<typeof getSteamPriceCny>> = null
-    if (dtSteamPrice === null) {
+    if (directMode) {
+      // 直连模式：仅用缓存值（请求路径已预取 + 后台队列持续刷新）；miss 项回退 SteamDT 并如实标注
+      sp = peekSteamPrice(c.hashName, ITEM_TTL_MS)
+    } else if (dtSteamPrice === null) {
       sp = await getSteamPriceCny(c.hashName, mirrors)
     }
-    const useBuffRef =
-      dtSteamPrice === null && sp === null && buffSteamRefAvailable && c.buffSteamRef !== null
-    const steam = dtSteamPrice ?? (sp ? sp.price : useBuffRef ? c.buffSteamRef : null)
+    const useBuffRef = dtSteamPrice === null && sp === null && buffSteamRefAvailable && c.buffSteamRef !== null
+    const steam = directMode
+      ? (sp ? sp.price : dtSteamPrice ?? (useBuffRef ? c.buffSteamRef : null))
+      : (dtSteamPrice ?? (sp ? sp.price : useBuffRef ? c.buffSteamRef : null))
     if (steam !== null) {
       steamOk++
-      if (dtSteamPrice !== null) steamViaSteamdt++
+      if (sp) steamViaDirect++
+      else if (dtSteamPrice !== null) steamViaSteamdt++
     }
 
     const steamNet = steam !== null ? steam * (1 - fees.steam) : null
@@ -310,22 +331,14 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
       igxeId: c.igxeId,
       steam,
       steamMedian: sp?.median ?? null,
-      steamVia:
-        dtSteamPrice !== null
-          ? 'steamdt'
-          : sp
-            ? sp.via
-            : useBuffRef
-              ? 'buff-reference'
-              : null,
-      steamUpdatedAt:
-        dtSteamPrice !== null
+      steamVia: sp ? sp.via : dtSteamPrice !== null ? 'steamdt' : useBuffRef ? 'buff-reference' : null,
+      steamUpdatedAt: sp
+        ? sp.ts
+        : dtSteamPrice !== null
           ? (dt?.steamUpdateTime ?? null)
-          : sp
-            ? sp.ts
-            : useBuffRef
-              ? Date.now()
-              : null,
+          : useBuffRef
+            ? Date.now()
+            : null,
       buff: c.buff,
       buffBuyOrder: c.buffBuyOrder,
       buffVia: c.buffVia,
@@ -349,14 +362,25 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
     dtAgeMin >= 15 ? `，Steam 价为上游低频采样（平均延迟约 ${dtAgeMin >= 120 ? `${Math.round(dtAgeMin / 60)} 小时` : `${dtAgeMin} 分钟`}）` : ''
 
   const steamStatus: SourceStatus =
-    steamOk > 0 && steamViaSteamdt > 0
+    steamOk > 0 && steamViaDirect > 0
       ? {
           name: 'steam',
           state: 'ok',
           itemCount: steamOk,
           lastSuccess: Date.now(),
-          message: `SteamDT 聚合源（${steamViaSteamdt} 项）${steamOk - steamViaSteamdt > 0 ? ' + 直连/镜像补位' : ''}${dtAgeNote}`,
+          message:
+            `直连/镜像 ${steamViaDirect} 项实时` +
+            (steamViaSteamdt > 0 ? ` + SteamDT 补位 ${steamViaSteamdt} 项${dtAgeNote}` : '') +
+            (steamCache.pending > 0 ? `（后台刷新中，剩余 ${steamCache.pending} 项）` : ''),
         }
+      : steamOk > 0 && steamViaSteamdt > 0
+        ? {
+            name: 'steam',
+            state: 'ok',
+            itemCount: steamOk,
+            lastSuccess: Date.now(),
+            message: `SteamDT 聚合源（${steamViaSteamdt} 项）${steamOk - steamViaSteamdt > 0 ? ' + 直连/镜像补位' : ''}${dtAgeNote}`,
+          }
       : steamOk > 0
         ? {
             name: 'steam',

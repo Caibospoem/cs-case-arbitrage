@@ -24,7 +24,8 @@ BUFF 官方（Cookie 可选）┘
 | 数据源 | 方式 | 备注 |
 |---|---|---|
 | IGXE | 服务端解析 SSR 数据 | 国内直连 |
-| SteamDT | 第三方聚合 API（含 Steam 参考价） | 国内直连 |
+| SteamDT | 第三方聚合 API（含 Steam 参考价） | 国内直连；**注意其 Steam 价为上游低频采样（延迟可达数小时）** |
+| Steam 直连/镜像 | Steam 市场低页解析，TTL 10 分钟 | 在设置中配置镜像后**自动升级为优先源**（实时数据），SteamDT 降级为回退 |
 | BUFF | 官方 API + Cookie | 可选，Cookie 仅本地加密存储 |
 
 ## 快速开始

@@ -19,6 +19,7 @@ const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
 const ITEM_TTL_MS = 10 * 60 * 1000
+export { ITEM_TTL_MS }
 const FAIL_TTL_MS = 90 * 1000
 const DIRECT_COOLDOWN_MS = 10 * 60 * 1000
 const FETCH_TIMEOUT_MS = 6_000
@@ -149,6 +150,14 @@ export async function getSteamPriceCny(hashName: string, mirrors: string[]): Pro
   cache.set(hashName, { value, ts: now })
   if (value) queueTick(mirrors)
   return value
+}
+
+/** 仅读缓存不发请求；maxAgeMs 限制新鲜度（超过视为 miss）。直连模式下用于请求路径组装 */
+export function peekSteamPrice(hashName: string, maxAgeMs?: number): SteamPrice | null {
+  const hit = cache.get(hashName)
+  if (!hit?.value) return null
+  if (maxAgeMs != null && Date.now() - hit.ts >= maxAgeMs) return null
+  return hit.value
 }
 
 /** 将待刷新的 hashName 排入后台轮询队列 */
