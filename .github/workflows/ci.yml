@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 初始化数据库与 Prisma Client
+        run: |
+          mkdir -p db
+          npx prisma db push
+
+      - name: Lint
+        run: npm run lint
+
+      - name: 构建
+        run: npm run build
+
+      - name: 上传 standalone 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: standalone
+          path: .next/standalone
+          retention-days: 3
