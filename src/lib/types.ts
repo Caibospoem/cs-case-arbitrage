@@ -22,6 +22,8 @@ export interface CasePrice {
   steam: number | null
   steamMedian: number | null
   steamVia: SteamPriceSource
+  /** Steam 价格的原始采样时刻（epoch ms）。SteamDT 来源为上游低频采样时间（延迟可达数小时），直连为抓取时刻，BUFF 参考为抓取时刻 */
+  steamUpdatedAt: number | null
   buff: number | null
   /** BUFF 求购（收刀）最高价 */
   buffBuyOrder: number | null

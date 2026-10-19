@@ -318,6 +318,14 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
             : useBuffRef
               ? 'buff-reference'
               : null,
+      steamUpdatedAt:
+        dtSteamPrice !== null
+          ? (dt?.steamUpdateTime ?? null)
+          : sp
+            ? sp.ts
+            : useBuffRef
+              ? Date.now()
+              : null,
       buff: c.buff,
       buffBuyOrder: c.buffBuyOrder,
       buffVia: c.buffVia,
@@ -332,6 +340,14 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
 
   cases.sort((a, b) => (b.bestRatio ?? -9) - (a.bestRatio ?? -9))
 
+  // SteamDT 来源的 Steam 价为上游低频采样，统计平均延迟并提示
+  const dtAges = cases
+    .filter((c) => c.steamVia === 'steamdt' && c.steamUpdatedAt !== null)
+    .map((c) => Date.now() - (c.steamUpdatedAt as number))
+  const dtAgeMin = dtAges.length > 0 ? Math.round(dtAges.reduce((a, b) => a + b, 0) / dtAges.length / 60000) : 0
+  const dtAgeNote =
+    dtAgeMin >= 15 ? `，Steam 价为上游低频采样（平均延迟约 ${dtAgeMin >= 120 ? `${Math.round(dtAgeMin / 60)} 小时` : `${dtAgeMin} 分钟`}）` : ''
+
   const steamStatus: SourceStatus =
     steamOk > 0 && steamViaSteamdt > 0
       ? {
@@ -339,7 +355,7 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
           state: 'ok',
           itemCount: steamOk,
           lastSuccess: Date.now(),
-          message: `SteamDT 聚合源（${steamViaSteamdt} 项）${steamOk - steamViaSteamdt > 0 ? ' + 直连/镜像补位' : ''}`,
+          message: `SteamDT 聚合源（${steamViaSteamdt} 项）${steamOk - steamViaSteamdt > 0 ? ' + 直连/镜像补位' : ''}${dtAgeNote}`,
         }
       : steamOk > 0
         ? {

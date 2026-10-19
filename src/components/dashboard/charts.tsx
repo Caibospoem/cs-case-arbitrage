@@ -98,7 +98,7 @@ export function PriceScatter({ cases }: { cases: CasePrice[] }) {
     )
     .map((c) => ({
       x: (c.steam ?? c.buff ?? c.igxe)!,
-      y: Number((c.bestRatio * 100).toFixed(2)),
+      y: Number(((c.bestRatio ?? 0) * 100).toFixed(2)),
       z: Math.abs((c.steam ?? 0) - (c.buff ?? c.igxe ?? 0)),
       name: c.nameCn,
       dir: c.bestDirection,

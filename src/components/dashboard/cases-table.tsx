@@ -130,13 +130,14 @@ export function CasesTable({
                     <TableCell className="whitespace-nowrap text-right">
                       {fmtPrice(c.steam)}
                       {c.steamVia === 'buff-reference' && (
-                        <span className="ml-1 text-[10px] text-zinc-500">参考</span>
-                      )}
-                      {c.steamVia === 'steamdt' && (
-                        <span className="ml-1 text-[10px] text-zinc-500" title="价格经 SteamDT 聚合源实时获取">
-                          DT
+                        <span
+                          className="ml-1 text-[10px] text-zinc-500"
+                          title="BUFF 官方数据中的 Steam 参考价"
+                        >
+                          参考
                         </span>
                       )}
+                      {c.steamVia === 'steamdt' && <SteamAgeBadge c={c} />}
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
                       {fmtPrice(c.buff)}
@@ -193,5 +194,25 @@ function RatioCell({ value }: { value: number | null }) {
     <TableCell className="whitespace-nowrap text-right">
       <span className={ratioColor(value)}>{fmtRatio(value)}</span>
     </TableCell>
+  )
+}
+
+/** Steam 价格数据年龄徽标：SteamDT 上游对 Steam 平台为低频采样，延迟可达数小时 */
+function SteamAgeBadge({ c }: { c: CasePrice }) {
+  const ts = c.steamUpdatedAt
+  const min = ts ? Math.max(0, Math.floor((Date.now() - ts) / 60000)) : null
+  const label =
+    min === null || min < 15 ? 'DT' : min < 90 ? `DT·${min}分` : `DT·${(min / 60).toFixed(1)}h`
+  const color =
+    min === null || min < 15 ? 'text-zinc-500' : min < 60 ? 'text-amber-400' : 'text-red-400'
+  const when = ts ? new Date(ts).toLocaleTimeString('zh-CN', { hour12: false }) : ''
+  const title =
+    min === null
+      ? '价格来自 SteamDT 聚合源（采样时间未知），可能与 Steam 市场当前价有偏差'
+      : `SteamDT 的 Steam 价格为上游低频采样：本次采样于 ${when}（约 ${min} 分钟前）。\n跨平台下单前请以 Steam 市场实际挂单价为准`
+  return (
+    <span className={`ml-1 whitespace-nowrap text-[10px] ${color}`} title={title}>
+      {label}
+    </span>
   )
 }
