@@ -75,7 +75,7 @@ async function saveSnapshots(cases: CasePrice[]) {
   }
 }
 
-export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesResponse> {
+export async function aggregate(opts: { force?: boolean; preferDirect?: boolean } = {}): Promise<PricesResponse> {
   const settings: AppSettings = await getSettings()
   const statuses: SourceStatus[] = []
 
@@ -237,7 +237,7 @@ export async function aggregate(opts: { force?: boolean } = {}): Promise<PricesR
   // 配置了镜像/代理 → 直连/镜像优先（缓存 TTL 内近实时，后台队列持续刷新），SteamDT 降级为回退；
   // 未配置 → SteamDT 聚合优先（国内直连稳定；注意其 Steam 价为上游低频采样），直连只补未覆盖项，最后 BUFF 参考
   const mirrors = parseMirrors(settings.steamMirrors)
-  const directMode = mirrors.length > 0
+  const directMode = mirrors.length > 0 || opts.preferDirect === true
   const steamCache = steamCacheStats()
   const dtCovered = (h: string) => {
     const dt = steamdtRows.get(h)

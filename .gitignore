@@ -12,8 +12,9 @@ build/
 *.log
 *.pid
 
-# runtime data (SQLite + snapshots, rebuilt by `prisma db push`)
-db/
+# runtime data (SQLite 本地库不入库; history/ 由 GitHub Actions 定时采集提交)
+db/*
+!db/history/
 
 # env & secrets
 .env
