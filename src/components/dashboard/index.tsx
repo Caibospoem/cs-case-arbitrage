@@ -13,6 +13,9 @@ import { CaseCompare, HistoryLine, PriceScatter, RatioBars } from './charts'
 import { SettingsDialog, type SettingsState } from './settings-dialog'
 import { DIRECTIONS, DIRECTION_MAP, fmtPrice, fmtRatio, fmtTime, ratioColor } from './shared'
 import { usePrices, useHistory } from './use-api'
+import { TrendPanel } from './trend-panel'
+
+type MainView = 'arbitrage' | 'trend'
 
 const STATUS_META: Record<SourceStatus['state'], { label: string; cls: string }> = {
   ok: { label: '实时', cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
@@ -23,6 +26,7 @@ const STATUS_META: Record<SourceStatus['state'], { label: string; cls: string }>
 
 export default function Dashboard() {
   const { data, error, loading, refresh } = usePrices(60_000)
+  const [view, setView] = useState<MainView>('arbitrage')
   const [direction, setDirection] = useState<RatioDirection>('buffToSteam')
   const [selected, setSelected] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -74,6 +78,22 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Tabs value={view} onValueChange={(v) => setView(v as MainView)}>
+              <TabsList className="bg-zinc-900">
+                <TabsTrigger
+                  value="arbitrage"
+                  className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950"
+                >
+                  差价分析
+                </TabsTrigger>
+                <TabsTrigger
+                  value="trend"
+                  className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950"
+                >
+                  历史走势
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
             {(data?.statuses ?? []).map((s) => (
               <Badge
                 key={s.name}
@@ -111,6 +131,10 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-4 py-5 sm:px-6">
+        {view === 'trend' ? (
+          <TrendPanel cases={cases.map((c) => ({ hashName: c.hashName, nameCn: c.nameCn }))} />
+        ) : (
+          <>
         {error && (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
             数据加载失败：{error}
@@ -291,6 +315,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </div>
+          </>
+        )}
       </main>
 
       <footer className="mt-auto border-t border-zinc-800 py-4 text-center text-xs text-zinc-600">
