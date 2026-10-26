@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { ExternalLink } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -125,7 +126,31 @@ export function CasesTable({
                   >
                     <TableCell>
                       <div className="font-medium leading-tight">{c.nameCn}</div>
-                      <div className="text-[11px] leading-tight text-zinc-500">{c.nameEn}</div>
+                      <div className="flex items-center gap-2 text-[11px] leading-tight text-zinc-500">
+                        <span>{c.nameEn}</span>
+                        <a
+                          href={`https://buff.163.com/market/goods?game=csgo&search_word=${encodeURIComponent(c.hashName)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-0.5 rounded border border-zinc-700 px-1 py-px text-[10px] text-zinc-400 hover:border-amber-500/50 hover:text-amber-400"
+                          title={`在 BUFF 搜索 ${c.nameCn}`}
+                        >
+                          BUFF
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                        <a
+                          href={`https://www.igxe.cn/market/csgo?keyword=${encodeURIComponent(c.hashName)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="inline-flex items-center gap-0.5 rounded border border-zinc-700 px-1 py-px text-[10px] text-zinc-400 hover:border-amber-500/50 hover:text-amber-400"
+                          title={`在 IGXE 搜索 ${c.nameCn}`}
+                        >
+                          IGXE
+                          <ExternalLink className="h-2.5 w-2.5" />
+                        </a>
+                      </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
                       {fmtPrice(c.steam)}
