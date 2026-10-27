@@ -78,6 +78,8 @@ export interface AppSettings {
   igxeFeePct: number
   buffCookie: string
   steamMirrors: string
+  /** Steam 价优先直连（hosts 加速/Watt Toolkit 场景）。开启后 SteamDT 降级为回退源 */
+  preferDirect: boolean
 }
 
 export interface HistoryPoint {

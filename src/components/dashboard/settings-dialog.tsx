@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { useToast } from '@/hooks/use-toast'
 
 export interface SettingsState {
@@ -21,6 +22,7 @@ export interface SettingsState {
   igxeFeePct: number
   buffCookie: string
   steamMirrors: string
+  preferDirect: boolean
 }
 
 export function SettingsDialog({
@@ -41,6 +43,7 @@ export function SettingsDialog({
     igxeFeePct: 2.5,
     buffCookie: '',
     steamMirrors: '',
+    preferDirect: false,
   })
   const [saving, setSaving] = useState(false)
 
@@ -162,6 +165,24 @@ export function SettingsDialog({
               当服务器无法直连 steamcommunity.com（大陆网络常见）时使用。任何能转发 Steam
               市场请求的反向代理均可。
             </p>
+          </div>
+
+          <div className="flex items-start justify-between gap-4 rounded-md border border-zinc-800 px-3 py-2.5">
+            <div className="space-y-0.5">
+              <Label htmlFor="preferDirect" className="text-xs text-zinc-300">
+                Steam 价优先直连
+              </Label>
+              <p className="text-[11px] leading-relaxed text-zinc-500">
+                适合本机 hosts 加速（Watt Toolkit/Steam++ 等）可直连 Steam 的场景。开启后
+                Steam 价走直连（近实时，10 分钟缓存），SteamDT 聚合降级为回退源；直连仍不可达的物品自动回落 SteamDT/参考价。
+              </p>
+            </div>
+            <Switch
+              id="preferDirect"
+              checked={form.preferDirect}
+              onCheckedChange={(v) => setForm({ ...form, preferDirect: v })}
+              className="data-[state=checked]:bg-amber-500"
+            />
           </div>
         </div>
 

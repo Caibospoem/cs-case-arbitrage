@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
     if (body.buffFeePct !== undefined) patch.buffFeePct = Number(body.buffFeePct)
     if (body.igxeFeePct !== undefined) patch.igxeFeePct = Number(body.igxeFeePct)
     if (body.steamMirrors !== undefined) patch.steamMirrors = String(body.steamMirrors)
+    if (body.preferDirect !== undefined) patch.preferDirect = body.preferDirect === true
     if (body.buffCookie !== undefined) {
       const c = String(body.buffCookie).trim()
       // 前端会回显 __SAVED__xxx 占位符，提交时若仍是占位符则不覆盖
