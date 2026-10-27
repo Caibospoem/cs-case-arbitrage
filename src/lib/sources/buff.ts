@@ -4,6 +4,8 @@
  * 登录后的 Cookie（至少包含 session 字段）。
  */
 
+import { EXTRA_ITEMS } from '@/lib/extra-items'
+
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
@@ -84,12 +86,18 @@ async function fetchPage(pageNum: number, cookie: string): Promise<Record<string
   return fetchJson(url, cookie)
 }
 
+/** 白名单：附加跟踪物品跳过「武器箱」名称过滤 */
+const EXTRA_HASHES = new Set(EXTRA_ITEMS.map((i) => i.hashName))
+
 function mapItems(rows: Record<string, unknown>[]): BuffItem[] {
   const out: BuffItem[] = []
   for (const r of rows) {
     const hashName = typeof r.market_hash_name === 'string' ? r.market_hash_name : ''
     if (!hashName) continue
     const nameCn = typeof r.name === 'string' ? r.name : hashName
+    // 搜索「武器箱」会连带出「××武器箱胶囊」等周边，必须按名称过滤
+    const isCase = /武器箱\s*$/.test(nameCn) || /(^|\s)case$/i.test(hashName.trim())
+    if (!isCase && !EXTRA_HASHES.has(hashName)) continue
     const goodsInfo = (r.goods_info ?? {}) as Record<string, unknown>
     out.push({
       hashName,
