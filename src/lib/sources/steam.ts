@@ -15,6 +15,8 @@
  *  - 每轮只刷新一小批（预算制），由聚合器循环调用逐步填满
  */
 
+import { steamAppIdFor } from '@/lib/extra-items'
+
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
@@ -56,7 +58,7 @@ const cache = (globalStore.__steamPriceCache ??= new Map<string, CacheEntry>())
 
 function buildTarget(hashName: string): string {
   return (
-    'https://steamcommunity.com/market/priceoverview/?appid=730&currency=23&market_hash_name=' +
+    `https://steamcommunity.com/market/priceoverview/?appid=${steamAppIdFor(hashName)}&currency=23&market_hash_name=` +
     encodeURIComponent(hashName)
   )
 }

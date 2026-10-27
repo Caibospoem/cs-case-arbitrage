@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSettings } from '@/lib/settings'
+import { steamAppIdFor } from '@/lib/extra-items'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -42,7 +43,8 @@ const cache = (globalStore.__trendCache ??= new Map<string, TrendCacheEntry>())
 
 function buildTargets(hashName: string, mirrors: string): { url: string; via: 'direct' | 'mirror' | 'proxy' }[] {
   const target =
-    'https://steamcommunity.com/market/listings/730/' + encodeURIComponent(hashName)
+    `https://steamcommunity.com/market/listings/${steamAppIdFor(hashName)}/` +
+    encodeURIComponent(hashName)
   const out: { url: string; via: 'direct' | 'mirror' | 'proxy' }[] = [{ url: target, via: 'direct' }]
   for (const raw of mirrors.split(/[\n,]/)) {
     const m = raw.trim()

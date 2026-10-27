@@ -12,7 +12,7 @@
 
 import { db } from '@/lib/db'
 import { getSettings } from '@/lib/settings'
-import { fetchIgxeCases, type IgxeItem } from '@/lib/sources/igxe'
+import { fetchIgxeCases, igxeExtraFailures, type IgxeItem } from '@/lib/sources/igxe'
 import { fetchBuffCases, type BuffItem } from '@/lib/sources/buff'
 import { fetchSteamDTCases, type SteamDTCaseRow } from '@/lib/sources/steamdt'
 import { getSteamPriceCny, enqueueSteamRefresh, peekSteamPrice, steamCacheStats, ITEM_TTL_MS } from '@/lib/sources/steam'
@@ -83,11 +83,16 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
   let igxeItems: IgxeItem[] = []
   try {
     igxeItems = await fetchIgxeCases(opts.force)
+    const extraFail = igxeExtraFailures()
     statuses.push({
       name: 'igxe',
       state: 'ok',
       itemCount: igxeItems.length,
       lastSuccess: Date.now(),
+      message:
+        extraFail.length > 0
+          ? `附加物品抓取失败：${extraFail.join('、')}（不影响武器箱数据）`
+          : undefined,
     })
   } catch (e) {
     statuses.push({
@@ -161,6 +166,7 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
       igxeId?: number
       igxe: number | null
       igxeBuyOrder: number | null
+      igxeSteamRef: number | null
       buff: number | null
       buffBuyOrder: number | null
       buffVia: 'official' | 'steamdt' | null
@@ -175,6 +181,7 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
       igxeId: it.id || undefined,
       igxe: it.minPrice,
       igxeBuyOrder: it.buyOrder,
+      igxeSteamRef: it.steamRef,
       buff: null,
       buffBuyOrder: null,
       buffVia: null,
@@ -195,6 +202,7 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
         nameCn: b.nameCn,
         igxe: null,
         igxeBuyOrder: null,
+        igxeSteamRef: null,
         buff: b.sellMinPrice,
         buffBuyOrder: b.buyMaxPrice,
         buffVia: 'official',
@@ -213,6 +221,7 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
         nameCn: row.nameCn || hash,
         igxe: null,
         igxeBuyOrder: null,
+        igxeSteamRef: null,
         buff: dtBuff,
         buffBuyOrder: dtBuffBid,
         buffVia: dtBuff !== null ? 'steamdt' : null,
@@ -289,9 +298,11 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
       sp = await getSteamPriceCny(c.hashName, mirrors)
     }
     const useBuffRef = dtSteamPrice === null && sp === null && buffSteamRefAvailable && c.buffSteamRef !== null
+    // IGXE 参考价兜底（优先级最低）：主要服务 SteamDT 不覆盖、直连又不可达的物品（如 TF2 钥匙）
+    const useIgxeRef = dtSteamPrice === null && sp === null && !useBuffRef && c.igxeSteamRef !== null
     const steam = directMode
-      ? (sp ? sp.price : dtSteamPrice ?? (useBuffRef ? c.buffSteamRef : null))
-      : (dtSteamPrice ?? (sp ? sp.price : useBuffRef ? c.buffSteamRef : null))
+      ? (sp ? sp.price : dtSteamPrice ?? (useBuffRef ? c.buffSteamRef : null) ?? (useIgxeRef ? c.igxeSteamRef : null))
+      : (dtSteamPrice ?? (sp ? sp.price : useBuffRef ? c.buffSteamRef : null) ?? (useIgxeRef ? c.igxeSteamRef : null))
     if (steam !== null) {
       steamOk++
       if (sp) steamViaDirect++
@@ -331,12 +342,20 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
       igxeId: c.igxeId,
       steam,
       steamMedian: sp?.median ?? null,
-      steamVia: sp ? sp.via : dtSteamPrice !== null ? 'steamdt' : useBuffRef ? 'buff-reference' : null,
+      steamVia: sp
+        ? sp.via
+        : dtSteamPrice !== null
+          ? 'steamdt'
+          : useBuffRef
+            ? 'buff-reference'
+            : useIgxeRef
+              ? 'igxe-reference'
+              : null,
       steamUpdatedAt: sp
         ? sp.ts
         : dtSteamPrice !== null
           ? (dt?.steamUpdateTime ?? null)
-          : useBuffRef
+          : useBuffRef || useIgxeRef
             ? Date.now()
             : null,
       buff: c.buff,
@@ -345,6 +364,7 @@ export async function aggregate(opts: { force?: boolean; preferDirect?: boolean 
       buffSteamRef: c.buffSteamRef,
       igxe: c.igxe,
       igxeBuyOrder: c.igxeBuyOrder,
+      igxeSteamRef: c.igxeSteamRef,
       ...r,
       bestRatio: best.bestRatio,
       bestDirection: best.bestDirection,

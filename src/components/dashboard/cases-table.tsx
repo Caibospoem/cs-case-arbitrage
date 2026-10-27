@@ -13,6 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import type { CasePrice } from '@/lib/types'
+import { igxeGameFor, isExtraItem } from '@/lib/extra-items'
 import { DIRECTION_MAP, fmtPrice, fmtRatio, ratioColor } from './shared'
 
 type SortKey =
@@ -125,7 +126,17 @@ export function CasesTable({
                     }`}
                   >
                     <TableCell>
-                      <div className="font-medium leading-tight">{c.nameCn}</div>
+                      <div className="flex items-center gap-1.5 font-medium leading-tight">
+                        {c.nameCn}
+                        {isExtraItem(c.hashName) && (
+                          <span
+                            className="rounded border border-sky-800 px-1 text-[10px] font-normal text-sky-400"
+                            title="非 CS2 物品（如 TF2），来自其他游戏市场分区"
+                          >
+                            TF2
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 text-[11px] leading-tight text-zinc-500">
                         <span>{c.nameEn}</span>
                         <a
@@ -140,7 +151,7 @@ export function CasesTable({
                           <ExternalLink className="h-2.5 w-2.5" />
                         </a>
                         <a
-                          href={`https://www.igxe.cn/market/csgo?keyword=${encodeURIComponent(c.hashName)}`}
+                          href={`https://www.igxe.cn/market/${igxeGameFor(c.hashName)}?keyword=${encodeURIComponent(c.hashName)}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
@@ -154,10 +165,14 @@ export function CasesTable({
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-right">
                       {fmtPrice(c.steam)}
-                      {c.steamVia === 'buff-reference' && (
+                      {(c.steamVia === 'buff-reference' || c.steamVia === 'igxe-reference') && (
                         <span
                           className="ml-1 text-[10px] text-zinc-500"
-                          title="BUFF 官方数据中的 Steam 参考价"
+                          title={
+                            c.steamVia === 'buff-reference'
+                              ? 'BUFF 官方数据中的 Steam 参考价'
+                              : 'IGXE 页面记录的 Steam 参考价（非实时，可能与 Steam 市场当前价有偏差）'
+                          }
                         >
                           参考
                         </span>

@@ -10,7 +10,7 @@ export interface SourceStatus {
   itemCount?: number
 }
 
-export type SteamPriceSource = 'direct' | 'mirror' | 'proxy' | 'steamdt' | 'buff-reference' | null
+export type SteamPriceSource = 'direct' | 'mirror' | 'proxy' | 'steamdt' | 'buff-reference' | 'igxe-reference' | null
 
 export interface CasePrice {
   /** Steam market_hash_name（英文，跨平台主键） */
@@ -33,6 +33,8 @@ export interface CasePrice {
   buffSteamRef: number | null
   igxe: number | null
   igxeBuyOrder: number | null
+  /** IGXE 记录的 Steam 参考价 */
+  igxeSteamRef: number | null
   /** 收益率（小数，如 0.12 表示 +12%） */
   buffToSteam: number | null
   igxeToSteam: number | null

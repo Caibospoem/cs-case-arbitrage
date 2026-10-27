@@ -3,7 +3,11 @@
  * 页面 https://www.igxe.cn/market/csgo?keyword=武器箱&page_no=N&page_size=50
  * 内嵌 window.__NUXT__ 状态，包含 dataList（含中文名、market_hash_name、
  * min_price 最低挂刀价[元]、purchase_max_price 求购最高价[元] 等）。
+ *
+ * 附加跟踪物品（如 TF2 曼恩公司供应箱钥匙）从对应游戏分区单独抓取。
  */
+
+import { EXTRA_ITEMS } from '@/lib/extra-items'
 
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
@@ -20,6 +24,8 @@ export interface IgxeItem {
   minPrice: number | null
   /** 求购最高价（元） */
   buyOrder: number | null
+  /** IGXE 记录的 Steam 参考价（元） */
+  steamRef: number | null
   saleCount: number
 }
 
@@ -27,6 +33,7 @@ type NuxtValue = unknown
 
 let cache: { at: number; items: IgxeItem[] } | null = null
 let inflight: Promise<IgxeItem[]> | null = null
+let lastExtraFailures: string[] = []
 
 function extractNuxtPayload(html: string): NuxtValue | null {
   const start = html.indexOf('window.__NUXT__=')
@@ -73,10 +80,14 @@ function normalizePrice(minPrice: number | null, reference: number | null): numb
   return minPrice
 }
 
-async function fetchPage(pageNo: number): Promise<Record<string, unknown>[]> {
+async function fetchPage(
+  pageNo: number,
+  game = 'csgo',
+  keyword = '武器箱',
+): Promise<Record<string, unknown>[]> {
   const url =
-    'https://www.igxe.cn/market/csgo?keyword=' +
-    encodeURIComponent('武器箱') +
+    `https://www.igxe.cn/market/${game}?keyword=` +
+    encodeURIComponent(keyword) +
     `&page_no=${pageNo}&page_size=50`
   const res = await fetch(url, {
     headers: {
@@ -94,6 +105,9 @@ async function fetchPage(pageNo: number): Promise<Record<string, unknown>[]> {
   return pickDataList(payload)
 }
 
+/** 白名单：附加跟踪物品跳过「武器箱」名称过滤 */
+const EXTRA_HASHES = new Set(EXTRA_ITEMS.map((i) => i.hashName))
+
 function mapItems(rows: Record<string, unknown>[]): IgxeItem[] {
   const out: IgxeItem[] = []
   for (const r of rows) {
@@ -101,7 +115,7 @@ function mapItems(rows: Record<string, unknown>[]): IgxeItem[] {
     const title = typeof r.title === 'string' ? r.title : ''
     if (!hashName) continue
     const isCase = /武器箱\s*$/.test(title) || /(^|\s)case$/i.test(hashName.trim())
-    if (!isCase) continue
+    if (!isCase && !EXTRA_HASHES.has(hashName)) continue
     const rawMin = num(r.min_price)
     const ref = num(r.reference_price)
     out.push({
@@ -110,6 +124,7 @@ function mapItems(rows: Record<string, unknown>[]): IgxeItem[] {
       hashName,
       minPrice: normalizePrice(rawMin, ref),
       buyOrder: num(r.purchase_max_price),
+      steamRef: ref,
       saleCount: typeof r.sale_count === 'number' ? r.sale_count : 0,
     })
   }
@@ -122,6 +137,7 @@ export async function fetchIgxeCases(force = false): Promise<IgxeItem[]> {
   inflight = (async () => {
     const merged = new Map<string, IgxeItem>()
     let lastError: unknown = null
+    const extraFailures: string[] = []
     for (let page = 1; page <= MAX_PAGES; page++) {
       try {
         const rows = await fetchPage(page)
@@ -134,16 +150,35 @@ export async function fetchIgxeCases(force = false): Promise<IgxeItem[]> {
         break
       }
     }
+    // 附加跟踪物品：从对应游戏分区按 hashName 精确搜索
+    // （单项失败不影响主箱单，也不计入「数据为空」判定）
+    for (const extra of EXTRA_ITEMS) {
+      try {
+        const rows = await fetchPage(1, extra.igxeGame, extra.hashName)
+        const item = mapItems(rows).find((i) => i.hashName === extra.hashName)
+        if (item) merged.set(item.hashName, item)
+        else extraFailures.push(extra.nameCn)
+      } catch {
+        // 附加物品抓取失败静默跳过（状态提示中如实说明）
+        extraFailures.push(extra.nameCn)
+      }
+    }
     if (merged.size === 0) {
       throw new Error(
         `IGXE 数据为空${lastError instanceof Error ? `：${lastError.message}` : ''}`,
       )
     }
     const items = Array.from(merged.values())
+    lastExtraFailures = extraFailures
     cache = { at: Date.now(), items }
     return items
   })().finally(() => {
     inflight = null
   })
   return inflight
+}
+
+/** 最近一次抓取中失败的附加物品（用于状态提示） */
+export function igxeExtraFailures(): string[] {
+  return lastExtraFailures
 }
