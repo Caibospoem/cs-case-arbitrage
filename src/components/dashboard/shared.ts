@@ -70,8 +70,10 @@ export function ratioColor(v: number | null | undefined): string {
   return v > 0.0001 ? 'text-emerald-400' : v < -0.0001 ? 'text-red-400' : 'text-zinc-400'
 }
 
+/** 时间轴刻度：月/日 时:分（快照数据跨多天积累，必须带日期） */
 export function fmtTime(ts: number | null | undefined): string {
   if (!ts) return '—'
   const d = new Date(ts)
-  return d.toLocaleTimeString('zh-CN', { hour12: false })
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }

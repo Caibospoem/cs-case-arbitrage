@@ -223,6 +223,7 @@ export function HistoryLine({ points }: { points: HistoryPoint[] }) {
           tick={{ fill: AXIS.tickFill, fontSize: 10 }}
           stroke={AXIS.stroke}
           tickFormatter={fmtTime}
+          minTickGap={72}
         />
         <YAxis
           tick={{ fill: AXIS.tickFill, fontSize: 10 }}

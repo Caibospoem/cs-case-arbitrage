@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table'
 import type { CasePrice } from '@/lib/types'
 import { igxeGameFor, isExtraItem } from '@/lib/extra-items'
-import { DIRECTION_MAP, fmtPrice, fmtRatio, ratioColor } from './shared'
+import { DIRECTION_MAP, fmtPrice, fmtRatio, fmtTime, ratioColor } from './shared'
 
 type SortKey =
   | 'bestRatio'
@@ -245,7 +245,7 @@ function SteamAgeBadge({ c }: { c: CasePrice }) {
     min === null || min < 15 ? 'DT' : min < 90 ? `DT·${min}分` : `DT·${(min / 60).toFixed(1)}h`
   const color =
     min === null || min < 15 ? 'text-zinc-500' : min < 60 ? 'text-amber-400' : 'text-red-400'
-  const when = ts ? new Date(ts).toLocaleTimeString('zh-CN', { hour12: false }) : ''
+  const when = ts ? fmtTime(ts) : ''
   const title =
     min === null
       ? '价格来自 SteamDT 聚合源（采样时间未知），可能与 Steam 市场当前价有偏差'
