@@ -8,6 +8,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   buffCookie: '',
   steamMirrors: '',
   preferDirect: false,
+  itadKey: '',
 }
 
 const KEY = 'app-settings'
@@ -41,6 +42,7 @@ export async function saveSettings(patch: Partial<AppSettings>): Promise<AppSett
   next.buffCookie = String(next.buffCookie || '').trim()
   next.steamMirrors = String(next.steamMirrors || '').trim()
   next.preferDirect = next.preferDirect === true
+  next.itadKey = String(next.itadKey || '').trim()
   const value = JSON.stringify(next)
   await db.setting.upsert({
     where: { key: KEY },

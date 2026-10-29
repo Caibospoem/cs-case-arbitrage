@@ -1,4 +1,4 @@
-export type SourceName = 'steam' | 'buff' | 'igxe' | 'steamdt'
+export type SourceName = 'steam' | 'buff' | 'igxe' | 'steamdt' | 'steamstore' | 'itad'
 
 export type SourceState = 'ok' | 'degraded' | 'error' | 'unconfigured'
 
@@ -80,6 +80,56 @@ export interface AppSettings {
   steamMirrors: string
   /** Steam 价优先直连（hosts 加速/Watt Toolkit 场景）。开启后 SteamDT 降级为回退源 */
   preferDirect: boolean
+  /** IsThereAnyDeal API Key（可选，用于游戏史低价） */
+  itadKey: string
+}
+
+/** ITAD 记录的历史最低价（region=CN，人民币） */
+export interface DiscountLow {
+  /** 史低价（元） */
+  price: number
+  /** 史低时的折扣百分比（0-100） */
+  cut: number
+  /** 史低出现时间（epoch ms） */
+  at: number
+  /** 达成史低的商店名 */
+  shop: string
+}
+
+/** Steam 商店当前折扣游戏 */
+export interface DiscountItem {
+  appid: number
+  name: string
+  /** 折扣百分比（0-100） */
+  discountPct: number
+  /** 现价（元） */
+  price: number
+  /** 原价（元） */
+  originalPrice: number
+  /** 好评率（0-100，无评测为 null） */
+  reviewScore: number | null
+  /** 评测总数 */
+  reviewCount: number
+  /** 评测标签（好评如潮 等） */
+  reviewLabel: string | null
+  /** 发布日期文本（如「2026 年 10 月 28 日」） */
+  releaseDate: string | null
+  /** 发布日期时间戳（解析失败为 null） */
+  releaseTs: number | null
+  /** 封面图 URL */
+  capsule: string | null
+  /** ITAD 史低（未配置 Key 或无数据为 null） */
+  low: DiscountLow | null
+}
+
+export interface DiscountsResponse {
+  updatedAt: number
+  items: DiscountItem[]
+  /** Steam 当前折扣游戏总数（搜索接口 total_count） */
+  totalAvailable: number | null
+  /** 实际抓取规模（按评测数取前 N） */
+  fetchedCount: number
+  statuses: SourceStatus[]
 }
 
 export interface HistoryPoint {

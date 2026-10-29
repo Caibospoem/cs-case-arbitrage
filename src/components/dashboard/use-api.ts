@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { HistoryPoint, PricesResponse } from '@/lib/types'
+import type { DiscountsResponse, HistoryPoint, PricesResponse } from '@/lib/types'
 
 /** 简单的轮询 + 手动刷新 hook（避免额外引入 react-query provider） */
 export function usePrices(pollMs = 60_000) {
@@ -62,4 +62,39 @@ export function useHistory(hashName: string | null, pollMs = 120_000) {
   }, [hashName, pollMs])
 
   return hashName ? points : []
+}
+
+/** 游戏折扣数据（服务端 10 分钟缓存，客户端 5 分钟轻轮询） */
+export function useDiscounts(limit: number, pollMs = 300_000) {
+  const [data, setData] = useState<DiscountsResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const refresh = useCallback(
+    async (force = false) => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/discounts?limit=${limit}${force ? '&force=1' : ''}`, {
+          cache: 'no-store',
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`)
+        setData(json as DiscountsResponse)
+        setError(null)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '未知错误')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [limit],
+  )
+
+  useEffect(() => {
+    void refresh(false)
+    const timer = setInterval(() => void refresh(false), pollMs)
+    return () => clearInterval(timer)
+  }, [refresh, pollMs])
+
+  return { data, error, loading, refresh }
 }

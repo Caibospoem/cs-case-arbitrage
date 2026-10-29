@@ -23,6 +23,7 @@ export interface SettingsState {
   buffCookie: string
   steamMirrors: string
   preferDirect: boolean
+  itadKey: string
 }
 
 export function SettingsDialog({
@@ -44,6 +45,7 @@ export function SettingsDialog({
     buffCookie: '',
     steamMirrors: '',
     preferDirect: false,
+    itadKey: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -145,6 +147,23 @@ export function SettingsDialog({
             />
             <p className="text-[11px] leading-relaxed text-zinc-500">
               仅保存在本机数据库中用于服务端请求。留空则无法获取 BUFF 数据。
+            </p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="itadKey" className="text-xs text-zinc-400">
+              IsThereAnyDeal API Key（可选，用于游戏史低价）
+            </Label>
+            <Input
+              id="itadKey"
+              type="password"
+              value={form.itadKey}
+              onChange={(e) => setForm({ ...form, itadKey: e.target.value })}
+              placeholder="在 isthereanydeal.com 免费注册 → 个人设置 Apps → 创建 API Key"
+              className="bg-zinc-950 font-mono text-xs"
+            />
+            <p className="text-[11px] leading-relaxed text-zinc-500">
+              仅「游戏折扣」页的史低价列需要。留空则该列显示为空，其余功能不受影响。
             </p>
           </div>
 

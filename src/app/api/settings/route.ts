@@ -7,10 +7,11 @@ export const runtime = 'nodejs'
 
 export async function GET() {
   const s = await getSettings()
-  // Cookie 属于敏感信息，只返回是否已配置 + 尾部特征，便于前端展示
+  // Cookie/Key 属于敏感信息，只返回是否已配置 + 尾部特征，便于前端展示
   return NextResponse.json({
     ...s,
     buffCookie: s.buffCookie ? `__SAVED__${s.buffCookie.slice(-6)}` : '',
+    itadKey: s.itadKey ? `__SAVED__${s.itadKey.slice(-6)}` : '',
   })
 }
 
@@ -29,10 +30,19 @@ export async function POST(req: NextRequest) {
       if (c && !c.startsWith('__SAVED__')) patch.buffCookie = c
       if (!c) patch.buffCookie = ''
     }
+    if (body.itadKey !== undefined) {
+      const k = String(body.itadKey).trim()
+      if (k && !k.startsWith('__SAVED__')) patch.itadKey = k
+      if (!k) patch.itadKey = ''
+    }
     const saved = await saveSettings(patch)
     return NextResponse.json({
       ok: true,
-      settings: { ...saved, buffCookie: saved.buffCookie ? `__SAVED__${saved.buffCookie.slice(-6)}` : '' },
+      settings: {
+        ...saved,
+        buffCookie: saved.buffCookie ? `__SAVED__${saved.buffCookie.slice(-6)}` : '',
+        itadKey: saved.itadKey ? `__SAVED__${saved.itadKey.slice(-6)}` : '',
+      },
     })
   } catch (e) {
     return NextResponse.json(

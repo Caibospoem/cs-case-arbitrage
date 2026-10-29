@@ -10,12 +10,13 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { RatioDirection, SourceStatus } from '@/lib/types'
 import { CasesTable } from './cases-table'
 import { CaseCompare, HistoryLine, PriceScatter, RatioBars } from './charts'
+import { DiscountPanel } from './discount-panel'
 import { SettingsDialog, type SettingsState } from './settings-dialog'
 import { DIRECTIONS, DIRECTION_MAP, fmtPrice, fmtRatio, fmtTime, ratioColor } from './shared'
 import { usePrices, useHistory } from './use-api'
 import { TrendPanel } from './trend-panel'
 
-type MainView = 'arbitrage' | 'trend'
+type MainView = 'arbitrage' | 'trend' | 'discounts'
 
 const STATUS_META: Record<SourceStatus['state'], { label: string; cls: string }> = {
   ok: { label: '实时', cls: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' },
@@ -92,6 +93,12 @@ export default function Dashboard() {
                 >
                   历史走势
                 </TabsTrigger>
+                <TabsTrigger
+                  value="discounts"
+                  className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-zinc-950"
+                >
+                  游戏折扣
+                </TabsTrigger>
               </TabsList>
             </Tabs>
             {(data?.statuses ?? []).map((s) => (
@@ -131,7 +138,9 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto w-full max-w-7xl flex-1 space-y-4 px-4 py-5 sm:px-6">
-        {view === 'trend' ? (
+        {view === 'discounts' ? (
+          <DiscountPanel onOpenSettings={openSettings} />
+        ) : view === 'trend' ? (
           <TrendPanel cases={cases.map((c) => ({ hashName: c.hashName, nameCn: c.nameCn }))} />
         ) : (
           <>
